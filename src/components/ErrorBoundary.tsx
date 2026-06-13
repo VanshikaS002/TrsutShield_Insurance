@@ -1,0 +1,54 @@
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { AlertCircle, RefreshCcw } from 'lucide-react';
+
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  public state: State = {
+    hasError: false,
+    error: null,
+  };
+
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Uncaught error:', error, errorInfo);
+  }
+
+  public render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-[400px] flex items-center justify-center p-6">
+          <div className="glass p-8 rounded-2xl max-w-md w-full text-center border border-red-500/20">
+            <div className="bg-red-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-bold mb-4">Something went wrong</h2>
+            <p className="text-gray-400 mb-8 leading-relaxed">
+              {this.state.error?.message.includes('auth/unauthorized-domain') 
+                ? "This domain is not authorized for login. Please add the current URL to your Firebase Console's authorized domains."
+                : "An unexpected error occurred. We've been notified and are looking into it."}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="flex items-center gap-2 px-6 py-3 glass rounded-xl font-semibold hover:bg-white/10 transition-all mx-auto"
+            >
+              <RefreshCcw className="w-4 h-4" /> Refresh Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}

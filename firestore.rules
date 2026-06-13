@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "vanshika.sharma1218@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidPolicy(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.category is string && data.category.size() > 0 &&
+             data.description is string && data.description.size() > 0 &&
+             data.benefits is string &&
+             data.eligibility is string &&
+             data.riskFactors is string &&
+             data.keyFeatures is string;
+    }
+
+    function isValidContact(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.message is string && data.message.size() > 0 && data.message.size() < 2000;
+    }
+
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() > 0 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.role in ['admin', 'user'] &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             (!('idProof' in data) || (data.idProof is string && data.idProof.size() < 200)) &&
+             (!('address' in data) || (data.address is string && data.address.size() < 500)) &&
+             (!('gender' in data) || (data.gender in ['Male', 'Female', 'Other'])) &&
+             (!('height' in data) || (data.height is number)) &&
+             (!('weight' in data) || (data.weight is number)) &&
+             (!('age' in data) || (data.age is int)) &&
+             (!('dob' in data) || (data.dob is string)) &&
+             (!('qualification' in data) || (data.qualification is string)) &&
+             (!('maritalStatus' in data) || (data.maritalStatus in ['Single', 'Married', 'Divorced', 'Widowed'])) &&
+             (!('occupationalDetails' in data) || (data.occupationalDetails is string)) &&
+             (!('annualIncome' in data) || (data.annualIncome is number)) &&
+             (!('medicalHistory' in data) || (data.medicalHistory is string));
+    }
+
+    // Policies: Publicly readable, only admin can write
+    match /policies/{policyId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin() && isValidPolicy(request.resource.data);
+    }
+
+    // Contacts: Anyone can create, only admin can read/update/delete
+    match /contacts/{contactId} {
+      allow create: if isValidContact(request.resource.data);
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Users: Only admin can read/write, users can read/write their own
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin()) && isValidUser(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}
